@@ -54,9 +54,9 @@ class User_Network:
 			if anomaly:
 				mean, std = anomaly
 				anomal_string = collections.OrderedDict([ ('event_type', 'purchase'),
-							('timestamp', event_dict['timestamp']), 
-							('id', event_dict['id']), 
-							('amount', event_dict['amount']),
+							('timestamp', event_log['timestamp']), 
+							('id', event_log['id']), 
+							('amount', event_log['amount']),
 							('mean', str('%.2f'%(mean))),
 							('sd', str('%.2f'%(std)))
 							])
@@ -239,4 +239,5 @@ class User:
 		self.purchases.append(new_purchase)
 
 		
+
 

@@ -48,7 +48,6 @@ def main():
 				if anomal_string:
 					json.dump(anomal_string, flagged_purchases)
 					flagged_purchases.write("\n")
-
 	print("data stream analyze complete")
 
 
