@@ -18,10 +18,7 @@ A purchase is anomalous when the purchase amount is more than 3 standard deviati
 Clone the repo and run `./run.sh` inside the anomaly_detection directory. This runs the code using the files `batch_log.json` and `stream_log.json` in the input_log directory as the input batch and stream files, respectively. It writes the output to the file `flagged_purchases.json` in the output_log directory.
 
 
-The code is written and tested in Python 2.7. It requires the `json` module.
-
-
-The python files contains 2 files. 
+The python files contains 2 files:
 
 ### File 1: process_classes
 
