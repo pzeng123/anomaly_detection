@@ -5,6 +5,8 @@ from process_classes import User_Network, User
 
 
 def main():
+	print("Loading...")
+	
 	# set file path, default first
 	input_path = './log_input/batch_log.json'
 	stream_path = './log_input/stream_log.json'
@@ -34,7 +36,7 @@ def main():
 			event_log = json.loads(nextline)
 			network.add_batch_event(event_log)
 
-	print("loading complete")
+	print("Loading complete")
 
 	## reads in the second file "stream_log.json" as streaming events to determine the anomal purchases.
 	with open(stream_path) as stream_log:
@@ -46,12 +48,11 @@ def main():
 				anomal_string = network.add_streaming_event(event_log)
 				# if there is anomal write it to output file
 				if anomal_string:
-					json.dump(anomal_string, flagged_purchases)
-					flagged_purchases.write("\n")
-	print("data stream analyze complete")
+					flagged_purchases.write(anomal_string)
+	print("Data stream analyze complete")
 
 
 start_time = time.time()
 main()
-print("total time:" + "--- %s seconds ---" % (time.time() - start_time) )
+print("Total time:" + "--- %s seconds ---" % round(time.time() - start_time), 2)
 

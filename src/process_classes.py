@@ -1,5 +1,4 @@
 from datetime import datetime
-##from collections import OrderedDict, deque
 import collections
 import numpy as np
 import heapq
@@ -15,7 +14,7 @@ class User_Network:
 		'''
 		self.D = D
 		self.T = T
-		self.Userid = {} # dictionary of integer ids to User objects
+		self.Userid = {}
 
 
 	## Process individual events streaming in from input json file
@@ -49,25 +48,27 @@ class User_Network:
 		'''
 		event_type = event_log['event_type']
 		if event_type == 'purchase':
-			anomaly = self.is_anomaly(event_log)
 			self.add_purchase(event_log)
-			if anomaly:
-				mean, std = anomaly
-				anomal_string = collections.OrderedDict([ ('event_type', 'purchase'),
-							('timestamp', event_log['timestamp']), 
-							('id', event_log['id']), 
-							('amount', event_log['amount']),
-							('mean', str('%.2f'%(mean))),
-							('sd', str('%.2f'%(std)))
-							])
-				return anomal_string				
+			id = event_log['id']
+			amount = float(event_log['amount'])
+			user = self.Userid[id]
+			friends_list = self.get_friends_list(id)
+			purchase_list = self.get_purchases(friends_list)
+			if len(purchase_list) >= 2:
+				amounts = [float(n) for _, _, n in purchase_list]
+				mean = np.mean(amounts)
+				std = np.std(amounts)
+				if amount > mean + 3 * std:
+					anomal_string = '{"event_type":"%s", "timestamp":"%s", "id": "%s", "amount": "%s", "mean": "%.2f", "sd": "%.2f"}\n' % (event_log["event_type"], event_log["timestamp"], event_log["id"], event_log["amount"], mean, std)
+					return anomal_string
 			return False
+			
 		elif event_type == 'befriend':
 			self.add_befriend(event_log)
 		elif event_type == 'unfriend':
 			self.add_unfriend(event_log)
 		else:
-			raise ValueError("Unknown event type", event_type)
+			raise ValueError("Event type error", event_type)
 
 
 	## update network triggered by different events
@@ -83,16 +84,15 @@ class User_Network:
 		id = event_log['id']
 		timestamp = event_log['timestamp']
 		amount = event_log['amount']
-
+		
+		# check this if id is old user or new user
 		if id in self.Userid:
 			user = self.Userid[id]
 			user.purchase(timestamp, amount)
-			# update user object
 		else:
 			new_user = User(id, self.T)
 			new_user.purchase(timestamp,amount)
 			self.Userid[id] = new_user
-			# create new user object and add to user map
 		return (timestamp,amount)
 
 
@@ -117,8 +117,8 @@ class User_Network:
 		else:
 			user2 = self.Userid[id2]
 
-		user1.befriend(id2)
-		user2.befriend(id1)
+		user1.friends.add(id2)
+		user2.friends.add(id1)
 		return user1, user2
 
 
@@ -134,12 +134,12 @@ class User_Network:
 
 		user1 = self.Userid[id1]
 		user2 = self.Userid[id2]
-		user1.unfriend(id2)
-		user2.unfriend(id1)
+		user1.friends.remove(id2)
+		user2.friends.remove(id1)
 		return user1, user2
 
 
-	### Fns used to check for anomalies
+	## get one user's friend list
 
 	def get_friends_list(self, user):
 		'''
@@ -149,12 +149,11 @@ class User_Network:
 		user: integer id of user to get friends list from.
 		return: list of all integer ids of people in user's dth degree network
 		'''
-		# breadth first search
+		
 		count = 0
 		friends_list = set()
 		queue = [(user, 0)]
 		while queue != []:
-			# print queue
 			curr_user, depth = queue.pop(0)
 			if curr_user not in friends_list:
 				if depth < self.D+1:
@@ -179,51 +178,27 @@ class User_Network:
 			p.extend(self.Userid[friend].purchases)
 		return heapq.nlargest(self.T, p)
 
-
-	def is_anomaly(self, purchase_event):
-		'''
-		Check if a given purchase is anomalous given self.T and self.D.
-		An event is anolalous if it is more than 3 standard devations above the
-		 mean of the last T purchases in the users dth degree user social network.
-		Events for which the network has fewer than 2 purchases are not flagged
-		 as anomalous.
-
-		event: Dictionary representing parsed json event.
-		return: Tuple of average and std of previous events if the event is
-		 anomalous; False if the event is not anomalous.
-		'''
-		id = purchase_event['id']
-		amount = float(purchase_event['amount'])
-		user = self.Userid[id]
-		friends_list = self.get_friends_list(id)
-		purchases = self.get_purchases(friends_list)
-		if len(purchases) >= 2:
-			amounts = [float(n) for _, _, n in purchases]
-			mean = np.mean(amounts)
-			std = np.std(amounts)
-			if amount > mean + 3 * std:
-				return (mean, std)
-		return False
-
-
-
 class User:
-	def __init__(self, id, max_purchases):
-		self.id = id # int of user id
-		self.friends = set() # set of ints of friends' user ids
-		self.purchases = collections.deque(maxlen=max_purchases) # list of tuples (timestamp, rank, amount)
-		# self.purchases = []
+	def __init__(self, id, T):
+		'''
+		Initialize a User object.
 
-	def befriend(self, user):
-		self.friends.add(user)
-
-	def unfriend(self, user):
-		self.friends.remove(user)
+		id = User id
+		T = number of historical purchases to check
+		'''
+		self.id = id 
+		self.friends = set() 
+		self.purchases = collections.deque(maxlen=T) # list of tuples (timestamp, rank, amount)
 
 	def purchase(self, timestamp, amount):
-		# A purchase is stored as a tuple (timestamp, rank, amount).
-		# Timestamp and amount are taken from the original json event.
-		# Rank is used to break ties for events with the same timestamp.
+		'''
+		User's purchase is stored as a tuple (timestamp, rank, amount).
+		Rank is for the same timestamp purchases.
+
+		timestamp, amount: from the original json event
+		return: none
+		'''
+
 		ts = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
 		if self.purchases:
 			last_purchase = self.purchases[-1]
