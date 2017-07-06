@@ -141,29 +141,34 @@ class User_Network:
 
 	## get one user's friend list
 
-	def get_friends_list(self, user):
+	def get_friends_list(self, id):
 		'''
 		Gets the list of all friends in a user's dth degree network, where D is
 		 defined by self.D, the degree of the network.
 
-		user: integer id of user to get friends list from.
+		id: user id.
 		return: list of all integer ids of people in user's dth degree network
 		'''
 		
-		count = 0
+		D = self.D
 		friends_list = set()
-		queue = [(user, 0)]
-		while queue != []:
-			curr_user, depth = queue.pop(0)
-			if curr_user not in friends_list:
-				if depth < self.D+1:
-					friends_list.add(curr_user)
-					for friend in self.Userid[curr_user].friends:
-						queue.append((friend,depth+1))
-		friends_list.remove(user)
+		current_degree_friend = set();
+		current_degree_friend.add(id)
+    
+		# Breadth First Search algorithm is used to find all the friends in the user's Dth degree social network.
+		while (D > 0):
+			next_degree_friend = set();
+			for i in current_degree_friend:
+				for j in self.Userid[i].friends:
+					if (j != id and not j in friends_list and not j in current_degree_friend):
+						next_degree_friend.add(j)
+			friends_list |= next_degree_friend
+			current_degree_friend = next_degree_friend
+			D -= 1
+			
 		return friends_list
 
-
+		
 	def get_purchases(self, friends_list):
 		'''
 		Gets the most recent purchases out of the users in friends_list,
@@ -187,8 +192,9 @@ class User:
 		T = number of historical purchases to check
 		'''
 		self.id = id 
-		self.friends = set() 
-		self.purchases = collections.deque(maxlen=T) # list of tuples (timestamp, rank, amount)
+		self.friends = set()
+		# deque of purchases tuples (timestamp, rank, amount)		
+		self.purchases = collections.deque(maxlen=T) 
 
 	def purchase(self, timestamp, amount):
 		'''
